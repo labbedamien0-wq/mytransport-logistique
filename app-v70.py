@@ -703,6 +703,7 @@ if st.session_state.auth_user is None:
                 if str(entered_pin).strip() == "0000" or (user_info and str(user_info.get("pin", "")).strip() == str(entered_pin).strip()):
                     st.session_state.auth_user = selected_login_user
                     st.session_state.show_login_transition = True
+                    enregistrer_action_journal(selected_login_user, "Connexion Utilisateur", f"🔑 {selected_login_user} s'est connecté à l'application web", icone="🔑", importance="succes")
                     st.rerun()
                 else:
                     st.error("❌ Code incorrect. Veuillez réessayer.")
@@ -932,6 +933,61 @@ def sauvegarder_message_tchat(auteur, role, message, tag="Général"):
         return False
 
 def charger_journal_activite():
+    # 1. Tentative de lecture en direct sur Google Sheets
+    conn = get_gsheets_conn()
+    if conn is not None:
+        try:
+            df_gsheets = conn.read(ttl=0)
+            if df_gsheets is not None and not df_gsheets.empty:
+                logs = []
+                for idx, row in df_gsheets.iterrows():
+                    dh = str(row.get("Date_Heure", "")).strip()
+                    parts_dh = dh.split(" ")
+                    date_val = parts_dh[0][:5] if len(parts_dh) > 0 else ""
+                    heure_val = parts_dh[1] if len(parts_dh) > 1 else dh
+                    
+                    act_val = str(row.get("Action", "")).strip()
+                    ref_val = str(row.get("Reference", "")).strip()
+                    det_val = str(row.get("Detail", "")).strip()
+                    aut_val = str(row.get("Utilisateur", "Système")).strip()
+                    
+                    icone = "📢"
+                    importance = "normal"
+                    if "🟢" in ref_val or "🟢" in det_val or "Conforme" in act_val:
+                        icone, importance = "🟢", "succes"
+                    elif "🔴" in ref_val or "🔴" in det_val or "NOK" in act_val or "Alerte" in act_val:
+                        icone, importance = "🔴", "alerte"
+                    elif "🟠" in ref_val or "🟠" in det_val or "Anomalie" in act_val:
+                        icone, importance = "🟠", "alerte"
+                    elif "🟡" in ref_val or "🟡" in det_val or "Trouvée" in act_val:
+                        icone, importance = "🟡", "succes"
+                    elif "🚚" in ref_val or "🚚" in det_val or "Quai" in act_val:
+                        icone, importance = "🚚", "normal"
+                    elif "👷" in ref_val or "👷" in det_val or "Assignation" in act_val:
+                        icone, importance = "👷", "succes"
+                    elif "🕒" in ref_val or "🕒" in det_val or "Horaire" in act_val:
+                        icone, importance = "🕒", "normal"
+                    elif "🔑" in ref_val or "🔑" in det_val or "Connexion" in act_val:
+                        icone, importance = "🔑", "succes"
+                    elif "💬" in ref_val or "💬" in det_val:
+                        icone, importance = "💬", "normal"
+                        
+                    logs.append({
+                        "id": idx + 1,
+                        "auteur": aut_val,
+                        "type": act_val,
+                        "details": det_val,
+                        "icone": icone,
+                        "importance": importance,
+                        "heure": heure_val,
+                        "date": date_val,
+                        "datetime_full": dh
+                    })
+                return logs
+        except Exception:
+            pass
+
+    # 2. Reperce sur le cache local JSON
     if os.path.exists(SHARED_LOG_FILE):
         try:
             with open(SHARED_LOG_FILE, "r", encoding="utf-8") as f:
@@ -941,29 +997,59 @@ def charger_journal_activite():
     return []
 
 def enregistrer_action_journal(auteur, type_action, details, icone="📢", importance="normal"):
+    now_dt = datetime.now()
+    heure_str = now_dt.strftime("%H:%M:%S")
+    date_str = now_dt.strftime("%d/%m")
+    full_datetime_str = now_dt.strftime("%d/%m/%Y %H:%M:%S")
+    
+    # 1. Sauvegarde dans le fichier JSON local (cache réseau)
     try:
-        logs = charger_journal_activite()
-        now_dt = datetime.now()
-        heure_str = now_dt.strftime("%H:%M:%S")
-        date_str = now_dt.strftime("%d/%m")
+        logs_local = []
+        if os.path.exists(SHARED_LOG_FILE):
+            with open(SHARED_LOG_FILE, "r", encoding="utf-8") as f:
+                logs_local = json.load(f)
         entry = {
             "id": int(now_dt.timestamp() * 1000),
-            "auteur": auteur,
-            "type": type_action,
-            "details": details,
-            "icone": icone,
-            "importance": importance,
+            "auteur": str(auteur),
+            "type": str(type_action),
+            "details": str(details),
+            "icone": str(icone),
+            "importance": str(importance),
             "heure": heure_str,
-            "date": date_str
+            "date": date_str,
+            "datetime_full": full_datetime_str
         }
-        logs.append(entry)
-        if len(logs) > 150:
-            logs = logs[-150:]
+        logs_local.append(entry)
+        if len(logs_local) > 200:
+            logs_local = logs_local[-200:]
         with open(SHARED_LOG_FILE, "w", encoding="utf-8") as f:
-            json.dump(logs, f, ensure_ascii=False, indent=2)
-        return True
+            json.dump(logs_local, f, ensure_ascii=False, indent=2)
     except Exception:
-        return False
+        pass
+
+    # 2. Écriture immédiate sur Google Sheets (si configuré sur Streamlit Cloud)
+    conn = get_gsheets_conn()
+    if conn is not None:
+        try:
+            try:
+                df_gsheets = conn.read(ttl=0)
+            except Exception:
+                df_gsheets = pd.DataFrame(columns=["Date_Heure", "Utilisateur", "Reference", "Action", "Detail"])
+            
+            nouvelle_ligne = pd.DataFrame([{
+                "Date_Heure": full_datetime_str,
+                "Utilisateur": str(auteur),
+                "Reference": str(icone),
+                "Action": str(type_action),
+                "Detail": str(details)
+            }])
+            
+            df_maj = pd.concat([df_gsheets, nouvelle_ligne], ignore_index=True)
+            conn.update(data=df_maj)
+        except Exception:
+            pass
+            
+    return True
 
 # --- TCHAT D'ÉQUIPE ET JOURNAL DES MODIFICATIONS EN DIRECT (SIDEBAR) ---
 st.sidebar.markdown("---")
@@ -1248,6 +1334,7 @@ if uploaded_file is not None:
             json.dump(info_save, f_info, ensure_ascii=False, indent=2)
             
         st.sidebar.success(f"✅ Extraction '{uploaded_file.name}' enregistrée et partagée sur le réseau !")
+        enregistrer_action_journal(nom_operateur, "Import Fichier Extraction", f"📥 Fichier d'extraction importé : {uploaded_file.name}", icone="📥", importance="succes")
         
         # Réinitialisation de session pour forcer le rechargement immédiat
         st.session_state.pop('processed_data', None)
@@ -1706,6 +1793,7 @@ if df_raw is not None:
         "🔮 Prévision & Planning (Qui fait quoi)",
         "📝 Suivi Chauffeurs & Pointage",
         "👷 Espace Cariste (Simplifié)",
+        "📜 Journal d'Activité & Traçabilité",
         "⚙️ Espace Administrateur"
     ]
 
@@ -3788,9 +3876,101 @@ if df_raw is not None:
 
 
     # =========================================================================
-    # TAB ADMIN : ESPACE ADMINISTRATEUR EXCLUSIF POUR DAMIEN
+    # TAB 6 : JOURNAL D'ACTIVITÉ & TRAÇABILITÉ COMPLÈTE EN DIRECT (GOOGLE SHEETS)
     # =========================================================================
-        # =========================================================================
+    elif selected_main_tab == tabs_list[6]:
+        st.markdown("<h3 style='color: #1F4E79; margin-top: -5px;'>📜 Journal d'Activité & Traçabilité en Direct (Google Sheets)</h3>", unsafe_allow_html=True)
+        st.caption("Consultez en temps réel l'historique exhaustif de toutes les modifications, saisies, horodatages précis, pointages et actions réalisés par chaque intervenant.")
+
+        # Barre d'actions haut de page
+        col_act1, col_act2 = st.columns([2.5, 3.5])
+        with col_act1:
+            if st.button("🔄 Rafraîchir le journal depuis Google Drive", type="primary", use_container_width=True):
+                st.cache_data.clear()
+                st.toast("Journal d'activité rafraîchi en direct !", icon="📊")
+                st.rerun()
+
+        # Chargement des données du journal
+        raw_logs = charger_journal_activite()
+        
+        if not raw_logs:
+            st.info("ℹ️ Aucun événement enregistré pour le moment dans le journal d'activité.")
+        else:
+            df_logs = pd.DataFrame(raw_logs)
+            
+            # Filtres dynamiques
+            st.markdown("##### 🔍 Filtres de recherche")
+            f1, f2, f3 = st.columns([1.5, 1.5, 2])
+            
+            with f1:
+                all_users = ["Tous les intervenants"] + sorted(list(set([str(x) for x in df_logs.get("auteur", []).unique() if str(x).strip()])))
+                sel_user = st.selectbox("👤 Intervenant :", all_users, key="filter_user_journal")
+                
+            with f2:
+                all_types = ["Toutes les actions"] + sorted(list(set([str(x) for x in df_logs.get("type", []).unique() if str(x).strip()])))
+                sel_type = st.selectbox("📝 Type d'action :", all_types, key="filter_type_journal")
+                
+            with f3:
+                search_query = st.text_input("🔍 Recherche par mot-clé :", placeholder="ex: FR-458-AB, 10:30, Connexion, Anomalie...", key="search_journal")
+                
+            # Appliquer les filtres
+            df_filtered = df_logs.copy()
+            if sel_user != "Tous les intervenants":
+                df_filtered = df_filtered[df_filtered["auteur"] == sel_user]
+            if sel_type != "Toutes les actions":
+                df_filtered = df_filtered[df_filtered["type"] == sel_type]
+            if search_query.strip():
+                sq = search_query.strip().lower()
+                df_filtered = df_filtered[
+                    df_filtered["details"].astype(str).str.lower().str.contains(sq) |
+                    df_filtered["type"].astype(str).str.lower().str.contains(sq) |
+                    df_filtered["auteur"].astype(str).str.lower().str.contains(sq)
+                ]
+                
+            # Metrics de synthèse
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("📊 Actions Filtrées", len(df_filtered))
+            nb_conforme = sum(1 for _, r in df_filtered.iterrows() if r.get("importance") == "succes" or "🟢" in str(r.get("icone")))
+            nb_alertes = sum(1 for _, r in df_filtered.iterrows() if r.get("importance") == "alerte" or "🔴" in str(r.get("icone")) or "🟠" in str(r.get("icone")))
+            m2.metric("🟢 Actions Validées", nb_conforme)
+            m3.metric("🚨 Alertes & Anomalies", nb_alertes)
+            m4.metric("👥 Intervenants Actifs", len(df_filtered["auteur"].unique()) if "auteur" in df_filtered else 0)
+            
+            st.markdown("---")
+            
+            # Formatage propre du tableau d'audit
+            display_rows = []
+            for _, r in reversed(list(df_filtered.iterrows())):
+                dh_str = f"{r.get('date', '')} {r.get('heure', '')}".strip()
+                if not dh_str or len(dh_str) < 5:
+                    dh_str = str(r.get('datetime_full', ''))
+                    
+                display_rows.append({
+                    "⏱️ Horodatage Précis": dh_str,
+                    "👤 Intervenant": str(r.get('auteur', '')),
+                    "📝 Action Réalisée": f"{r.get('icone', '')} {r.get('type', '')}",
+                    "💬 Détails de la modification": str(r.get('details', ''))
+                })
+                
+            df_display = pd.DataFrame(display_rows)
+            if not df_display.empty:
+                st.dataframe(
+                    df_display,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=min(max(len(df_display) * 38 + 50, 200), 600)
+                )
+                
+                # Bouton de téléchargement CSV
+                csv_data = df_display.to_csv(index=False, encoding="utf-8-sig")
+                st.download_button(
+                    "📥 Télécharger l'Historique Complet (.csv)",
+                    data=csv_data,
+                    file_name=f"Journal_Activite_MYTransport_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv"
+                )
+
+    # =========================================================================
     # TAB CARISTE : ESPACE CARISTE SIMPLIFIÉ ET TACTILE (V52)
     # =========================================================================
     elif selected_main_tab == tabs_list[5]:
@@ -4010,7 +4190,7 @@ if df_raw is not None:
                                 
         st.markdown("---")
         
-    elif is_admin_damien and selected_main_tab == tabs_list[6]:
+    elif is_admin_damien and selected_main_tab == tabs_list[7]:
         if True:
             st.markdown("<h3 style='color: #1F4E79; margin-top: -5px;'>⚙️ Espace d'Administration du Site</h3>", unsafe_allow_html=True)
             st.info("👋 Cet onglet permet d'administrer les accès, gérer les mots de passe, réinitialiser des données et gérer les fichiers partagés sur le serveur.")
