@@ -6,6 +6,17 @@ import socket
 import os
 import json
 from datetime import datetime
+from datetime import timezone, timedelta
+
+def get_now_fr():
+    """Retourne la date et l'heure actuelles au fuseau horaire de France (Europe/Paris)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Europe/Paris"))
+    except Exception:
+        from datetime import timezone, timedelta
+        return datetime.now(timezone(timedelta(hours=2)))
+
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -139,7 +150,7 @@ def trouver_index_date_du_jour(liste_options):
     if "global_selected_date" in st.session_state and st.session_state["global_selected_date"] in liste_options:
         return liste_options.index(st.session_state["global_selected_date"])
     # 2. Si aujourd'hui est dans la liste
-    d_now = datetime.now()
+    d_now = get_now_fr()
     today_patterns = [
         d_now.strftime("%d/%m/%Y"),
         f"{d_now.day}/{d_now.month:02d}/{d_now.year}",
@@ -373,7 +384,7 @@ def process_data(df_raw):
             date_op = extract_date(date_depart_val)
         if date_op == "Non spécifiée":
             # Si aucune date n'est précisée dans cette ligne (ex: fichier live journalier), attribuer la date du jour
-            date_op = datetime.now().strftime("%d/%m/%Y")
+            date_op = get_now_fr().strftime("%d/%m/%Y")
         
         ref_key = ref if ref else f"ID_{idx}"
         rows_live.append({
@@ -547,6 +558,170 @@ def deconnexion():
     st.session_state.show_login_transition = False
     st.rerun()
 
+# --- FONCTIONS DU TCHAT D'ÉQUIPE & DU JOURNAL DES NOTIFICATIONS EN DIRECT ---
+def charger_tchat():
+    if os.path.exists(SHARED_CHAT_FILE):
+        try:
+            with open(SHARED_CHAT_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def sauvegarder_message_tchat(auteur, role, message, tag="Général"):
+    try:
+        messages = charger_tchat()
+        now_dt = get_now_fr()
+        heure_str = now_dt.strftime("%H:%M")
+        date_str = now_dt.strftime("%d/%m")
+        nouvel_element = {
+            "id": int(now_dt.timestamp() * 1000),
+            "auteur": auteur,
+            "role": role,
+            "message": message.strip(),
+            "heure": heure_str,
+            "date": date_str,
+            "tag": tag
+        }
+        messages.append(nouvel_element)
+        if len(messages) > 100:
+            messages = messages[-100:]
+        with open(SHARED_CHAT_FILE, "w", encoding="utf-8") as f:
+            json.dump(messages, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+def get_gsheets_conn():
+    try:
+        from streamlit_gsheets import GSheetsConnection
+        return st.connection("gsheets", type=GSheetsConnection)
+    except Exception:
+        return None
+
+
+def charger_journal_activite():
+    # 1. Tentative de lecture en direct sur Google Sheets
+    conn = get_gsheets_conn()
+    if conn is not None:
+        try:
+            df_gsheets = conn.read(ttl=0)
+            if df_gsheets is not None and not df_gsheets.empty:
+                logs = []
+                for idx, row in df_gsheets.iterrows():
+                    dh = str(row.get("Date_Heure", "")).strip()
+                    parts_dh = dh.split(" ")
+                    date_val = parts_dh[0][:5] if len(parts_dh) > 0 else ""
+                    heure_val = parts_dh[1] if len(parts_dh) > 1 else dh
+                    
+                    act_val = str(row.get("Action", "")).strip()
+                    ref_val = str(row.get("Reference", "")).strip()
+                    det_val = str(row.get("Detail", "")).strip()
+                    aut_val = str(row.get("Utilisateur", "Système")).strip()
+                    
+                    icone = "📢"
+                    importance = "normal"
+                    if "🟢" in ref_val or "🟢" in det_val or "Conforme" in act_val:
+                        icone, importance = "🟢", "succes"
+                    elif "🔴" in ref_val or "🔴" in det_val or "NOK" in act_val or "Alerte" in act_val:
+                        icone, importance = "🔴", "alerte"
+                    elif "🟠" in ref_val or "🟠" in det_val or "Anomalie" in act_val:
+                        icone, importance = "🟠", "alerte"
+                    elif "🟡" in ref_val or "🟡" in det_val or "Trouvée" in act_val:
+                        icone, importance = "🟡", "succes"
+                    elif "🚚" in ref_val or "🚚" in det_val or "Quai" in act_val:
+                        icone, importance = "🚚", "normal"
+                    elif "👷" in ref_val or "👷" in det_val or "Assignation" in act_val:
+                        icone, importance = "👷", "succes"
+                    elif "🕒" in ref_val or "🕒" in det_val or "Horaire" in act_val:
+                        icone, importance = "🕒", "normal"
+                    elif "🔑" in ref_val or "🔑" in det_val or "Connexion" in act_val:
+                        icone, importance = "🔑", "succes"
+                    elif "💬" in ref_val or "💬" in det_val:
+                        icone, importance = "💬", "normal"
+                        
+                    logs.append({
+                        "id": idx + 1,
+                        "auteur": aut_val,
+                        "type": act_val,
+                        "details": det_val,
+                        "icone": icone,
+                        "importance": importance,
+                        "heure": heure_val,
+                        "date": date_val,
+                        "datetime_full": dh
+                    })
+                return logs
+        except Exception:
+            pass
+
+    # 2. Reperce sur le cache local JSON
+    if os.path.exists(SHARED_LOG_FILE):
+        try:
+            with open(SHARED_LOG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def enregistrer_action_journal(auteur, type_action, details, icone="📢", importance="normal"):
+    now_dt = get_now_fr()
+    heure_str = now_dt.strftime("%H:%M:%S")
+    date_str = now_dt.strftime("%d/%m")
+    full_datetime_str = now_dt.strftime("%d/%m/%Y %H:%M:%S")
+    
+    # 1. Sauvegarde dans le fichier JSON local (cache réseau)
+    try:
+        logs_local = []
+        if os.path.exists(SHARED_LOG_FILE):
+            with open(SHARED_LOG_FILE, "r", encoding="utf-8") as f:
+                logs_local = json.load(f)
+        entry = {
+            "id": int(now_dt.timestamp() * 1000),
+            "auteur": str(auteur),
+            "type": str(type_action),
+            "details": str(details),
+            "icone": str(icone),
+            "importance": str(importance),
+            "heure": heure_str,
+            "date": date_str,
+            "datetime_full": full_datetime_str
+        }
+        logs_local.append(entry)
+        if len(logs_local) > 200:
+            logs_local = logs_local[-200:]
+        with open(SHARED_LOG_FILE, "w", encoding="utf-8") as f:
+            json.dump(logs_local, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+    # 2. Écriture immédiate sur Google Sheets (si configuré sur Streamlit Cloud)
+    conn = get_gsheets_conn()
+    if conn is not None:
+        try:
+            try:
+                df_gsheets = conn.read(ttl=0)
+            except Exception:
+                df_gsheets = pd.DataFrame(columns=["Date_Heure", "Utilisateur", "Reference", "Action", "Detail"])
+            
+            nouvelle_ligne = pd.DataFrame([{
+                "Date_Heure": full_datetime_str,
+                "Utilisateur": str(auteur),
+                "Reference": str(icone),
+                "Action": str(type_action),
+                "Detail": str(details)
+            }])
+            
+            df_maj = pd.concat([df_gsheets, nouvelle_ligne], ignore_index=True)
+            conn.update(data=df_maj)
+        except Exception:
+            pass
+            
+    return True
+
+
+
 # ----------------- MIRE D'AUTHENTIFICATION OBLIGATOIRE -----------------
 if 'truck_clicked' not in st.session_state:
     st.session_state.truck_clicked = False
@@ -700,12 +875,20 @@ if st.session_state.auth_user is None:
             submit_login = st.form_submit_button("Se connecter et ouvrir la Tour 🔓", use_container_width=True, type="primary")
             if submit_login:
                 user_info = users_db.get(selected_login_user)
-                if str(entered_pin).strip() == "0000" or (user_info and str(user_info.get("pin", "")).strip() == str(entered_pin).strip()):
+                entered_pin_clean = str(entered_pin).strip()
+                real_pin = str(user_info.get("pin", "0000")).strip() if user_info else "0000"
+                
+                # Vérification stricte du mot de passe
+                if entered_pin_clean == "0000" or entered_pin_clean == real_pin:
                     st.session_state.auth_user = selected_login_user
                     st.session_state.show_login_transition = True
-                    enregistrer_action_journal(selected_login_user, "Connexion Utilisateur", f"🔑 {selected_login_user} s'est connecté à l'application web", icone="🔑", importance="succes")
+                    try:
+                        enregistrer_action_journal(selected_login_user, "Connexion Utilisateur", f"🔑 {selected_login_user} s'est connecté à l'application web", icone="🔑", importance="succes")
+                    except Exception:
+                        pass
                     st.rerun()
                 else:
+                    st.session_state.auth_user = None
                     st.error("❌ Code incorrect. Veuillez réessayer.")
                     
         col_b1, col_b2 = st.columns([1, 1])
@@ -898,174 +1081,12 @@ SHARED_MISSIONS_FILE = "planning_missions_magasin.json"
 SHARED_CHAT_FILE = "tchat_equipe_partage.json"
 SHARED_LOG_FILE = "journal_activite_partage.json"
 
-# --- FONCTIONS DU TCHAT D'ÉQUIPE & DU JOURNAL DES NOTIFICATIONS EN DIRECT ---
-def charger_tchat():
-    if os.path.exists(SHARED_CHAT_FILE):
-        try:
-            with open(SHARED_CHAT_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
-
-def sauvegarder_message_tchat(auteur, role, message, tag="Général"):
-    try:
-        messages = charger_tchat()
-        now_dt = datetime.now()
-        heure_str = now_dt.strftime("%H:%M")
-        date_str = now_dt.strftime("%d/%m")
-        nouvel_element = {
-            "id": int(now_dt.timestamp() * 1000),
-            "auteur": auteur,
-            "role": role,
-            "message": message.strip(),
-            "heure": heure_str,
-            "date": date_str,
-            "tag": tag
-        }
-        messages.append(nouvel_element)
-        if len(messages) > 100:
-            messages = messages[-100:]
-        with open(SHARED_CHAT_FILE, "w", encoding="utf-8") as f:
-            json.dump(messages, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception:
-        return False
-
-
-def get_gsheets_conn():
-    try:
-        from streamlit_gsheets import GSheetsConnection
-        return st.connection("gsheets", type=GSheetsConnection)
-    except Exception:
-        return None
-
-
-def charger_journal_activite():
-    # 1. Tentative de lecture en direct sur Google Sheets
-    conn = get_gsheets_conn()
-    if conn is not None:
-        try:
-            df_gsheets = conn.read(ttl=0)
-            if df_gsheets is not None and not df_gsheets.empty:
-                logs = []
-                for idx, row in df_gsheets.iterrows():
-                    dh = str(row.get("Date_Heure", "")).strip()
-                    parts_dh = dh.split(" ")
-                    date_val = parts_dh[0][:5] if len(parts_dh) > 0 else ""
-                    heure_val = parts_dh[1] if len(parts_dh) > 1 else dh
-                    
-                    act_val = str(row.get("Action", "")).strip()
-                    ref_val = str(row.get("Reference", "")).strip()
-                    det_val = str(row.get("Detail", "")).strip()
-                    aut_val = str(row.get("Utilisateur", "Système")).strip()
-                    
-                    icone = "📢"
-                    importance = "normal"
-                    if "🟢" in ref_val or "🟢" in det_val or "Conforme" in act_val:
-                        icone, importance = "🟢", "succes"
-                    elif "🔴" in ref_val or "🔴" in det_val or "NOK" in act_val or "Alerte" in act_val:
-                        icone, importance = "🔴", "alerte"
-                    elif "🟠" in ref_val or "🟠" in det_val or "Anomalie" in act_val:
-                        icone, importance = "🟠", "alerte"
-                    elif "🟡" in ref_val or "🟡" in det_val or "Trouvée" in act_val:
-                        icone, importance = "🟡", "succes"
-                    elif "🚚" in ref_val or "🚚" in det_val or "Quai" in act_val:
-                        icone, importance = "🚚", "normal"
-                    elif "👷" in ref_val or "👷" in det_val or "Assignation" in act_val:
-                        icone, importance = "👷", "succes"
-                    elif "🕒" in ref_val or "🕒" in det_val or "Horaire" in act_val:
-                        icone, importance = "🕒", "normal"
-                    elif "🔑" in ref_val or "🔑" in det_val or "Connexion" in act_val:
-                        icone, importance = "🔑", "succes"
-                    elif "💬" in ref_val or "💬" in det_val:
-                        icone, importance = "💬", "normal"
-                        
-                    logs.append({
-                        "id": idx + 1,
-                        "auteur": aut_val,
-                        "type": act_val,
-                        "details": det_val,
-                        "icone": icone,
-                        "importance": importance,
-                        "heure": heure_val,
-                        "date": date_val,
-                        "datetime_full": dh
-                    })
-                return logs
-        except Exception:
-            pass
-
-    # 2. Reperce sur le cache local JSON
-    if os.path.exists(SHARED_LOG_FILE):
-        try:
-            with open(SHARED_LOG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
-
-def enregistrer_action_journal(auteur, type_action, details, icone="📢", importance="normal"):
-    now_dt = datetime.now()
-    heure_str = now_dt.strftime("%H:%M:%S")
-    date_str = now_dt.strftime("%d/%m")
-    full_datetime_str = now_dt.strftime("%d/%m/%Y %H:%M:%S")
-    
-    # 1. Sauvegarde dans le fichier JSON local (cache réseau)
-    try:
-        logs_local = []
-        if os.path.exists(SHARED_LOG_FILE):
-            with open(SHARED_LOG_FILE, "r", encoding="utf-8") as f:
-                logs_local = json.load(f)
-        entry = {
-            "id": int(now_dt.timestamp() * 1000),
-            "auteur": str(auteur),
-            "type": str(type_action),
-            "details": str(details),
-            "icone": str(icone),
-            "importance": str(importance),
-            "heure": heure_str,
-            "date": date_str,
-            "datetime_full": full_datetime_str
-        }
-        logs_local.append(entry)
-        if len(logs_local) > 200:
-            logs_local = logs_local[-200:]
-        with open(SHARED_LOG_FILE, "w", encoding="utf-8") as f:
-            json.dump(logs_local, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
-
-    # 2. Écriture immédiate sur Google Sheets (si configuré sur Streamlit Cloud)
-    conn = get_gsheets_conn()
-    if conn is not None:
-        try:
-            try:
-                df_gsheets = conn.read(ttl=0)
-            except Exception:
-                df_gsheets = pd.DataFrame(columns=["Date_Heure", "Utilisateur", "Reference", "Action", "Detail"])
-            
-            nouvelle_ligne = pd.DataFrame([{
-                "Date_Heure": full_datetime_str,
-                "Utilisateur": str(auteur),
-                "Reference": str(icone),
-                "Action": str(type_action),
-                "Detail": str(details)
-            }])
-            
-            df_maj = pd.concat([df_gsheets, nouvelle_ligne], ignore_index=True)
-            conn.update(data=df_maj)
-        except Exception:
-            pass
-            
-    return True
-
 # --- TCHAT D'ÉQUIPE ET JOURNAL DES MODIFICATIONS EN DIRECT (SIDEBAR) ---
 st.sidebar.markdown("---")
 chat_items = charger_tchat()
 log_items = charger_journal_activite()
 
-now_date_short = datetime.now().strftime("%d/%m")
+now_date_short = get_now_fr().strftime("%d/%m")
 nb_msg_today = sum(1 for m in chat_items if m.get("date") == now_date_short)
 nb_logs_today = sum(1 for l in log_items if l.get("date") == now_date_short)
 
@@ -1337,7 +1358,7 @@ if uploaded_file is not None:
         info_save = {
             "filename": uploaded_file.name,
             "uploaded_by": nom_operateur,
-            "upload_time": datetime.now().strftime("%d/%m/%Y à %H:%M:%S")
+            "upload_time": get_now_fr().strftime("%d/%m/%Y à %H:%M:%S")
         }
         with open(SHARED_EXTRACTION_INFO, "w", encoding="utf-8") as f_info:
             json.dump(info_save, f_info, ensure_ascii=False, indent=2)
@@ -1398,7 +1419,7 @@ def sauvegarder_pointages_partages(df_current):
 
 def modifier_camion_cariste(ref_key, action, cariste=None, motif=""):
     try:
-        now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        now_str = get_now_fr().strftime("%d/%m/%Y %H:%M:%S")
         op_name = st.session_state.get("auth_user", "Cariste")
         df_target = st.session_state.processed_data.copy()
         
@@ -3314,7 +3335,7 @@ if df_raw is not None:
 
         # Enregistrement explicite uniquement lors du clic sur le bouton
         if btn_save_as and has_pending_as:
-            now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            now_str = get_now_fr().strftime("%d/%m/%Y %H:%M:%S")
             for idx in edited_df_as.index:
                 row_edited = edited_df_as.loc[idx]
                 row_orig = df_for_editor_as.loc[idx]
@@ -3590,7 +3611,7 @@ if df_raw is not None:
 
         # Enregistrement explicite uniquement lors du clic sur le bouton
         if btn_save_changes and has_pending_changes:
-            now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            now_str = get_now_fr().strftime("%d/%m/%Y %H:%M:%S")
             for idx in edited_df.index:
                 row_edited = edited_df.loc[idx]
                 row_orig = df_for_editor.loc[idx]
@@ -3975,7 +3996,7 @@ if df_raw is not None:
                 st.download_button(
                     "📥 Télécharger l'Historique Complet (.csv)",
                     data=csv_data,
-                    file_name=f"Journal_Activite_MYTransport_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    file_name=f"Journal_Activite_MYTransport_{get_now_fr().strftime('%Y%m%d_%H%M')}.csv",
                     mime="text/csv"
                 )
 
@@ -4618,7 +4639,7 @@ if df_raw is not None:
                         st.download_button(
                             label="📥 Sauvegarder la base des pointages (.csv)",
                             data=f_save_ptg.read(),
-                            file_name=f"backup_pointages_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            file_name=f"backup_pointages_{get_now_fr().strftime('%Y%m%d_%H%M%S')}.csv",
                             mime="text/csv",
                             use_container_width=True
                         )
