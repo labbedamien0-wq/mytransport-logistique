@@ -878,8 +878,8 @@ if st.session_state.auth_user is None:
                 entered_pin_clean = str(entered_pin).strip()
                 real_pin = str(user_info.get("pin", "0000")).strip() if user_info else "0000"
                 
-                # Vérification stricte du mot de passe
-                if entered_pin_clean == "0000" or entered_pin_clean == real_pin:
+                # Vérification stricte et exclusive du mot de passe utilisateur
+                if user_info and len(entered_pin_clean) > 0 and entered_pin_clean == real_pin:
                     st.session_state.auth_user = selected_login_user
                     st.session_state.show_login_transition = True
                     try:
@@ -889,7 +889,8 @@ if st.session_state.auth_user is None:
                     st.rerun()
                 else:
                     st.session_state.auth_user = None
-                    st.error("❌ Code incorrect. Veuillez réessayer.")
+                    st.session_state.show_login_transition = False
+                    st.error(f"❌ Code PIN incorrect pour {selected_login_user}. Veuillez entrer le code configuré.")
                     
         col_b1, col_b2 = st.columns([1, 1])
         with col_b1:
@@ -897,7 +898,7 @@ if st.session_state.auth_user is None:
                 st.session_state.truck_clicked = False
                 st.rerun()
 
-        st.caption("ℹ️ *Chaque intervenant dispose de son propre code confidentiel (Code 0000 universel en test).*")
+        st.caption("ℹ️ *Chaque intervenant dispose de son propre code confidentiel configuré dans l'Espace Administrateur.*")
     st.stop()
 # Utilisateur authentifié avec succès
 nom_operateur = st.session_state.auth_user
@@ -1111,6 +1112,38 @@ with st.sidebar.expander(f"💬 Tchat & Alertes Direct ({nb_msg_today} msg)", ex
         choix_vue_com = "💬 Tchat Équipe"
 
     if choix_vue_com == "💬 Tchat Équipe":
+        # GRANDE NOTIFICATION VISUELLE DANS L'ENCART TCHAT
+        if chat_items:
+            dernier_m = chat_items[-1]
+            is_urgent_m = ("Urgent" in dernier_m.get("tag", "") or "🚨" in dernier_m.get("tag", ""))
+            bg_noti = "#FEF2F2" if is_urgent_m else "#EFF6FF"
+            border_noti = "#EF4444" if is_urgent_m else "#2563EB"
+            title_noti = "🚨 NOTIFICATION URGENTE" if is_urgent_m else "💬 DERNIER MESSAGE ÉQUIPE"
+            text_col_noti = "#991B1B" if is_urgent_m else "#1E40AF"
+            
+            tag_badge_m = ""
+            if is_urgent_m:
+                tag_badge_m = "<span style='background:#DC2626; color:white; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800;'>URGENT 🚨</span> "
+            elif "Quai" in dernier_m.get("tag", ""):
+                tag_badge_m = "<span style='background:#0284C7; color:white; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800;'>QUAI 🚚</span> "
+            elif "Cariste" in dernier_m.get("tag", ""):
+                tag_badge_m = "<span style='background:#10B981; color:white; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:800;'>CARISTE 📦</span> "
+
+            st.markdown(f"""
+            <div style='background: {bg_noti}; border: 2px solid {border_noti}; border-left: 6px solid {border_noti}; padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);'>
+                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;'>
+                    <span style='font-size: 13px; font-weight: 800; color: {text_col_noti};'>{title_noti}</span>
+                    <span style='font-size: 11px; font-weight: 700; color: #334155; background: #FFFFFF; padding: 2px 8px; border-radius: 10px; border: 1px solid #CBD5E1;'>🕒 {dernier_m.get('heure')} ({dernier_m.get('date')})</span>
+                </div>
+                <div style='font-size: 13px; font-weight: 700; color: #1E293B; margin-bottom: 4px;'>
+                    👤 <b>{dernier_m.get('auteur')}</b> <span style='font-size: 11px; color: #64748B; font-weight: 500;'>({dernier_m.get('role', 'Opérateur')})</span> :
+                </div>
+                <div style='font-size: 14px; font-weight: 800; color: #0F172A; background: #FFFFFF; padding: 8px 12px; border-radius: 8px; border: 1px solid #93C5FD; line-height: 1.4;'>
+                    {tag_badge_m}{dernier_m.get('message')}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
         # Formulaire d'envoi rapide de message
         with st.form("form_tchat_sb", clear_on_submit=True):
             msg_text = st.text_input("Message :", placeholder="Écrire un message pour l'équipe...", label_visibility="collapsed")
