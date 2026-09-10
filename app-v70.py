@@ -932,6 +932,15 @@ def sauvegarder_message_tchat(auteur, role, message, tag="Général"):
     except Exception:
         return False
 
+
+def get_gsheets_conn():
+    try:
+        from streamlit_gsheets import GSheetsConnection
+        return st.connection("gsheets", type=GSheetsConnection)
+    except Exception:
+        return None
+
+
 def charger_journal_activite():
     # 1. Tentative de lecture en direct sur Google Sheets
     conn = get_gsheets_conn()
