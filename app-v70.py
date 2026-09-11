@@ -942,6 +942,37 @@ if st.session_state.auth_user is None:
 # Utilisateur authentifié avec succès
 nom_operateur = st.session_state.auth_user
 user_data = users_db.get(nom_operateur, {"role": "Administrateur"})
+
+# --- FILIGRANE DÉMO SERVICE IT (AVERTISSEMENT VISUEL) ---
+if nom_operateur == "Service IT":
+    st.markdown("""
+    <style>
+        .watermark-it-demo {
+            position: fixed;
+            top: 48%;
+            left: 52%;
+            transform: translate(-50%, -50%) rotate(-20deg);
+            font-size: 46px;
+            font-weight: 900;
+            color: rgba(220, 38, 38, 0.18);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            pointer-events: none;
+            z-index: 999999;
+            white-space: nowrap;
+            user-select: none;
+            border: 5px dashed rgba(220, 38, 38, 0.3);
+            padding: 14px 38px;
+            border-radius: 14px;
+            text-align: center;
+            background: rgba(254, 242, 242, 0.25);
+            box-shadow: 0 8px 32px rgba(220, 38, 38, 0.08);
+        }
+    </style>
+    <div class="watermark-it-demo">
+        ⚠️ DÉMO EN ATTENTE DE VALIDATION IT
+    </div>
+    """, unsafe_allow_html=True)
 role_actif = user_data.get("role", "Administrateur")
 is_admin_damien = True
 is_gestionnaire = True
@@ -1951,7 +1982,7 @@ if df_raw is not None:
                 <div>
                     <div style='font-size: 17px; font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px;'>
                         💻 <span>SESSION DE PRÉSENTATION PROJET — SERVICE IT & DIRECTION</span>
-                        <span style='background: #22C55E; color: #052E16; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase;'>Production Prête</span>
+                        <span style='background: #EF4444; color: #FFFFFF; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase;'>⚠️ DÉMO EN ATTENTE DE VALIDATION IT</span>
                     </div>
                     <div style='font-size: 13.5px; opacity: 0.95; margin-top: 4px; font-weight: 500;'>
                         Massilly Logistique • Tour de Contrôle Chauffeurs & Synchronisation Cloud Google Sheets
