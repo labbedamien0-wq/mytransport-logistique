@@ -266,6 +266,46 @@ def parse_description(desc):
     )
 
 # Traiter le fichier importé et extraire l'intégralité des colonnes
+
+def generer_donnees_fictives_massilly():
+    today_str = get_now_fr().strftime("%d/%m/%Y")
+    data = [
+        {"Ref": "1365374_SOLARYS VAUVERT", "Type": "Chargement", "Descriptif": "33 PAL - COUVERCLES METAL - 33 PALETTES EUROPE", "Transporteur": "GEODIS LOGISTICS", "Expéditeur/Destinataire": "SOLARYS VAUVERT", "Statut": "En cours", "Date Chargement/Dechargement": f"{today_str} 08:00", "CARISTE_PRESET": "BAYLE David", "QUAI_PRESET": "Quai 1", "STATUS_PRESET": "OK"},
+        {"Ref": "T-000031324", "Type": "Déchargement", "Descriptif": "24 PAL - BOITES CONSERVE - 24 PALETTES EUROPE 80x120", "Transporteur": "STEF TRANSPORT", "Expéditeur/Destinataire": "Iberembal San Adrián", "Statut": "Terminé", "Date Chargement/Dechargement": f"{today_str} 07:00", "CARISTE_PRESET": "BECKER Philippe", "QUAI_PRESET": "Quai 2", "STATUS_PRESET": "OK"},
+        {"Ref": "1364798_BISCUITERIE ABBAYE", "Type": "Chargement", "Descriptif": "18 PAL - EMBALLAGES ALIMENTAIRES", "Transporteur": "DACHSER FRANCE", "Expéditeur/Destinataire": "BISCUITERIE DE L'ABBAYE", "Statut": "En cours", "Date Chargement/Dechargement": f"{today_str} 08:30", "CARISTE_PRESET": "CARLOT Didier", "QUAI_PRESET": "Quai 3", "STATUS_PRESET": "TROUVÉE"},
+        {"Ref": "1364672_FALLOT BEAUNE", "Type": "Chargement", "Descriptif": "26 PAL - BOITES MOUTARDE - 26 PAL EUROPE", "Transporteur": "KUEHNE+NAGEL", "Expéditeur/Destinataire": "FALLOT ETS BEAUNE", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 09:15", "CARISTE_PRESET": "ES SAHIBI Az Eddine", "QUAI_PRESET": "Quai 4", "STATUS_PRESET": "ANOMALIE", "MOTIF_PRESET": "Palette filmée froissée au contrôle"},
+        {"Ref": "1364960_MAISON CHRISTOL", "Type": "Chargement", "Descriptif": "12 PAL - BOITES CONSERVE", "Transporteur": "XPO LOGISTICS", "Expéditeur/Destinataire": "MAISON CHRISTOL VIAS", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 10:00", "CARISTE_PRESET": "JUILLARD Anthony", "QUAI_PRESET": "Quai 5", "STATUS_PRESET": "TROUVÉE"},
+        {"Ref": "1364962_CHRISTOL BALARUC", "Type": "Chargement", "Descriptif": "15 PAL - COUVERCLES METAL", "Transporteur": "DB SCHENKER", "Expéditeur/Destinataire": "MAISON CHRISTOL BALARUC", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 10:30", "CARISTE_PRESET": "LENGYEL Fred", "QUAI_PRESET": "Quai 6", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1365299_FOSSIER REIMS", "Type": "Chargement", "Descriptif": "20 PAL - BOITES METAL FOSSIER", "Transporteur": "CHRNS LOGISTIQUE", "Expéditeur/Destinataire": "FOSSIER REIMS", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 11:00", "CARISTE_PRESET": "DERAIN Didier", "QUAI_PRESET": "Quai 1", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1365020_SCHWIGON GMBH", "Type": "Chargement", "Descriptif": "30 PAL - COUVERCLES FACILE OUVERTURE", "Transporteur": "NORBERT DENTRESSANGLE", "Expéditeur/Destinataire": "SCHWIGON GMBH", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 11:30", "CARISTE_PRESET": "PETIT Christophe", "QUAI_PRESET": "Quai 2", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1365371_SOLARYS 2", "Type": "Chargement", "Descriptif": "22 PAL - BOITES DE CONSERVE", "Transporteur": "GEODIS LOGISTICS", "Expéditeur/Destinataire": "SOLARYS VAUVERT", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 13:30", "CARISTE_PRESET": "BELLINI Erwan", "QUAI_PRESET": "Quai 3", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1365043_SAINTE LUCIE", "Type": "Chargement", "Descriptif": "16 PAL - FLACONS ET COUVERCLES", "Transporteur": "STEF TRANSPORT", "Expéditeur/Destinataire": "SAINTE-LUCIE VERNEUIL", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 14:00", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1365436_ISIGNY STE MERE", "Type": "Chargement", "Descriptif": "28 PAL - BOITES LAIT POUDRE", "Transporteur": "DACHSER FRANCE", "Expéditeur/Destinataire": "ISIGNY STE MERE", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 14:30", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1364767_DELOUIS FILS", "Type": "Chargement", "Descriptif": "14 PAL - POTS METAL VINAIGRE", "Transporteur": "KUEHNE+NAGEL", "Expéditeur/Destinataire": "DELOUIS FILS CHAMPSAC", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 15:00", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1364832_ANDROS BOIN", "Type": "Chargement", "Descriptif": "32 PAL - BOITES FRUITS", "Transporteur": "XPO LOGISTICS", "Expéditeur/Destinataire": "ANDROS BOIN USINE", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 15:30", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1364797_CHARBONNEAUX", "Type": "Chargement", "Descriptif": "19 PAL - CAPSULES METAL", "Transporteur": "DB SCHENKER", "Expéditeur/Destinataire": "CHARBONNEAUX BRABANT REIMS", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 16:00", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1365373_SOLARYS 3", "Type": "Chargement", "Descriptif": "25 PAL - COUVERCLES METAL", "Transporteur": "GEODIS LOGISTICS", "Expéditeur/Destinataire": "SOLARYS VAUVERT", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 16:30", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1365046_ISIGNY STE MERE 2", "Type": "Chargement", "Descriptif": "27 PAL - BOITES LAIT", "Transporteur": "DACHSER FRANCE", "Expéditeur/Destinataire": "ISIGNY STE MERE", "Statut": "Planifié", "Date Chargement/Dechargement": f"{today_str} 17:00", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1364669_VAN DER MARK", "Type": "Déchargement", "Descriptif": "30 PAL - TOLES ACIER BRUTES", "Transporteur": "VAN WIJNGEN", "Expéditeur/Destinataire": "VAN DER MARK OUD", "Statut": "En attente", "Date Chargement/Dechargement": f"{today_str} 00:00", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1365418_AJV PLELO", "Type": "Chargement", "Descriptif": "18 PAL - BOITES LÉGUMES", "Transporteur": "STEF TRANSPORT", "Expéditeur/Destinataire": "AJV PLELO", "Statut": "En attente", "Date Chargement/Dechargement": f"{today_str} 00:00", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"},
+        {"Ref": "1364277_REICHOLD", "Type": "Chargement", "Descriptif": "21 PAL - COUVERCLES SPÉCIAUX", "Transporteur": "NORBERT DENTRESSANGLE", "Expéditeur/Destinataire": "REICHOLD FEINKOST GMBH", "Statut": "En attente", "Date Chargement/Dechargement": f"{today_str} 00:00", "CARISTE_PRESET": "Non assigné", "QUAI_PRESET": "", "STATUS_PRESET": "AUCUN"}
+    ]
+    df_res = pd.DataFrame(data)
+    df_res["Utilisateur de réservation"] = "Service IT / Démo"
+    df_res["Date Réservation"] = today_str
+    df_res["Date départ"] = today_str
+    df_res["Heure départ"] = "18:00"
+    df_res["Poids"] = "14 500 kg"
+    df_res["Adresse 1"] = "Z.I. Massilly"
+    df_res["Adresse 2"] = "Usine & Entrepôt"
+    df_res["Code Postal"] = "71960"
+    df_res["Ville"] = "Massilly"
+    df_res["Instruction"] = "Contrôle qualité quai & déchargement sécurisé"
+    df_res["Coût Transport"] = "480 €"
+    df_res["Date Expédition/Livraison"] = today_str
+    return df_res
+
+
 def process_data(df_raw):
     rows_live = []
     
@@ -421,15 +461,15 @@ def process_data(df_raw):
             "Coût Transport": cout_val,
             
             # Assignation prévisionnelle
-            "CARISTE_ASSIGNE": "Non assigné",
-            "QUAI_CONSIGNE": "",
+            "CARISTE_ASSIGNE": str(row.get("CARISTE_PRESET", "Non assigné")) if "CARISTE_PRESET" in row else "Non assigné",
+            "QUAI_CONSIGNE": str(row.get("QUAI_PRESET", "")) if "QUAI_PRESET" in row else "",
             
             # Checkboxes de suivi
-            "TROUVÉE": False,
-            "ANOMALIE_CHECK": False,
-            "OK": False,
-            "NOK": False,
-            "ANOMALIE": "",
+            "TROUVÉE": (str(row.get("STATUS_PRESET", "")) == "TROUVÉE") if "STATUS_PRESET" in row else False,
+            "ANOMALIE_CHECK": (str(row.get("STATUS_PRESET", "")) == "ANOMALIE") if "STATUS_PRESET" in row else False,
+            "OK": (str(row.get("STATUS_PRESET", "")) == "OK") if "STATUS_PRESET" in row else False,
+            "NOK": (str(row.get("STATUS_PRESET", "")) == "NOK") if "STATUS_PRESET" in row else False,
+            "ANOMALIE": str(row.get("MOTIF_PRESET", "")) if "MOTIF_PRESET" in row else "",
             "GESTIONNAIRE": "",
             "MODIFIE_PAR": "",
             "DATE_HEURE_MODIF": ""
@@ -1370,9 +1410,11 @@ if st.sidebar.button("🔄 Synchroniser les données réseau"):
     st.rerun()
 
 use_demo = False
-if not has_shared_extraction and uploaded_file is None:
+if nom_operateur == "Service IT":
+    use_demo = True
+elif not has_shared_extraction and uploaded_file is None:
     st.sidebar.markdown("---")
-    use_demo = st.sidebar.checkbox("Charger les données de démonstration (LIVE EXCEL)", value=True)
+    use_demo = st.sidebar.checkbox("Charger les données de démonstration (LIVE EXCEL)", value=False)
 
 # Lecture des données : si un fichier est téléversé, on l'enregistre sur le serveur pour TOUTE L'ÉQUIPE
 df_raw = None
@@ -1405,8 +1447,25 @@ if uploaded_file is not None:
     except Exception as e:
         st.sidebar.error(f"Erreur de lecture du fichier : {e}")
 
+elif nom_operateur == "Service IT" and uploaded_file is None:
+    # Pour la session IT : préchargement automatique de l'extraction de démonstration
+    try:
+        local_demo1 = "Copie de Suivi MYTransport  - LIVE EXCEL.csv"
+        local_demo2 = "Copie de Suivi MYTransport - LIVE EXCEL.csv"
+        if os.path.exists(local_demo1):
+            df_raw = pd.read_csv(local_demo1)
+        elif os.path.exists(local_demo2):
+            df_raw = pd.read_csv(local_demo2)
+        elif os.path.exists('/workspace/knowledge/Copie_de_Suivi_MYTransport__-_LIVE_EXCEL.csv'):
+            df_raw = pd.read_csv('/workspace/knowledge/Copie_de_Suivi_MYTransport__-_LIVE_EXCEL.csv')
+        else:
+            df_raw = generer_donnees_fictives_massilly()
+        st.sidebar.info("💻 Session Présentation Service IT : Extraction de démonstration préchargée")
+    except Exception:
+        df_raw = generer_donnees_fictives_massilly()
+
 elif has_shared_extraction:
-    # Pour Christine, David ou tout utilisateur ouvrant l'application sans recharger le fichier
+    # Pour les autres utilisateurs : chargement du fichier partagé réel de la journée
     try:
         df_raw = pd.read_csv(SHARED_EXTRACTION_FILE)
     except Exception as e:
@@ -1420,11 +1479,17 @@ elif use_demo:
             df_raw = pd.read_csv(local_demo1)
         elif os.path.exists(local_demo2):
             df_raw = pd.read_csv(local_demo2)
-        else:
+        elif os.path.exists('/workspace/knowledge/Copie_de_Suivi_MYTransport__-_LIVE_EXCEL.csv'):
             df_raw = pd.read_csv('/workspace/knowledge/Copie_de_Suivi_MYTransport__-_LIVE_EXCEL.csv')
-        st.sidebar.info("Données de démo chargées (LIVE EXCEL)")
-    except Exception as e:
-        st.sidebar.error(f"Erreur démo : {e}")
+        else:
+            df_raw = generer_donnees_fictives_massilly()
+        st.sidebar.info("Données de démonstration chargées (LIVE EXCEL - Massilly)")
+    except Exception:
+        df_raw = generer_donnees_fictives_massilly()
+
+if df_raw is None:
+    cols_def = ['Ref', 'Type', 'Descriptif', 'Transporteur', 'Expéditeur/Destinataire', 'Statut', 'Date Chargement/Dechargement', 'Date Expédition/Livraison', 'Utilisateur de réservation', 'Date Réservation', 'Date départ', 'Heure départ', 'Poids', 'Adresse 1', 'Adresse 2', 'Code Postal', 'Ville', 'Instruction', 'Coût Transport']
+    df_raw = pd.DataFrame(columns=cols_def)
 
 def charger_pointages_partages():
     if os.path.exists(SHARED_DATA_FILE):
